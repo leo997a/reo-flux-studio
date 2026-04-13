@@ -1,25 +1,28 @@
-import { NextResponse } from "next/server";
-
-export const runtime = "nodejs";
-
-const FIXED_PROMPT = `Create an ultra-realistic studio sports portrait based on the uploaded person.
+const FIXED_PROMPT = `Create a realistic professional studio photograph of the same man from the uploaded image.
 
 Keep the same person generally consistent with the input photo.
-Preserve the main facial characteristics as much as possible.
+Preserve the main facial identity, age, skin tone, hairline, hair texture, beard style, jawline, nose, lips, and eye spacing as much as possible.
 
-Apply this setup:
+Use:
 - neutral grey studio background
 - black crew-neck shirt
-- dark wayfarer-style sunglasses
+- natural dark sunglasses
 - white wired earbuds
-- tight centered crop
-- symmetrical sports-broadcast composition
-- realistic skin texture
+- centered tight portrait crop
+- realistic studio lighting
+- natural skin texture
+- photorealistic DSLR look
 - neutral expression
-- photorealistic detail
 
-Do not add captions, banners, logos, or any text inside the generated image.
-Return one final image only.`;
+Do not stylize.
+Do not paint.
+Do not illustrate.
+Do not beautify.
+Do not change ethnicity.
+Do not make the face younger.
+Do not add extra text or banners inside the image.
+
+Return one realistic image only.`;
 
 export async function POST(req) {
   try {
