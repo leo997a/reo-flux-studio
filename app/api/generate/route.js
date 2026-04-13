@@ -1,34 +1,62 @@
 import { NextResponse } from "next/server";
-import { GoogleGenAI } from "@google/genai";
 
 export const runtime = "nodejs";
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 export async function POST(req) {
   try {
-    const { prompt } = await req.json();
-    if (!prompt?.trim()) {
-      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
+    if (!process.env.CF_ACCOUNT_ID || !process.env.CF_API_TOKEN) {
+      return NextResponse.json(
+        { error: "Missing CF_ACCOUNT_ID or CF_API_TOKEN" },
+        { status: 500 }
+      );
     }
 
-    const response = await ai.models.generateContent({
-      model: "gemini-3.1-flash-image-preview",
-      contents: [prompt],
-    });
+    const { prompt } = await req.json();
 
-    const parts = response?.candidates?.[0]?.content?.parts || [];
-    const image = parts.find((p) => p.inlineData);
-    const text = parts.find((p) => p.text)?.text || "";
+    if (!prompt?.trim()) {
+      return NextResponse.json(
+        { error: "Prompt is required" },
+        { status: 400 }
+      );
+    }
 
-    if (!image?.inlineData?.data) {
-      return NextResponse.json({ error: text || "No image returned" }, { status: 500 });
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt,
+          steps: 4,
+          seed: Math.floor(Math.random() * 1000000),
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok || !data?.result?.image) {
+      return NextResponse.json(
+        {
+          error:
+            data?.errors?.[0]?.message ||
+            data?.result?.description ||
+            "Cloudflare generation failed",
+        },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({
-      output: `data:${image.inlineData.mimeType || "image/png"};base64,${image.inlineData.data}`,
-      text,
+      output: `data:image/jpeg;base64,${data.result.image}`,
     });
-  } catch (e) {
-    return NextResponse.json({ error: e?.message || "Generation failed" }, { status: 500 });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error?.message || "Generation failed" },
+      { status: 500 }
+    );
   }
 }
