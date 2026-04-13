@@ -18,17 +18,12 @@ export default function ReoStudio() {
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Server Error");
-      }
+      if (!res.ok) throw new Error(data.error || "Server Error");
 
       setResult(data.output);
     } catch (err) {
@@ -39,15 +34,7 @@ export default function ReoStudio() {
   };
 
   return (
-    <div
-      dir="rtl"
-      style={{
-        minHeight: "100vh",
-        background: "#000",
-        color: "#fff",
-        padding: 20,
-      }}
-    >
+    <div dir="rtl" style={{ minHeight: "100vh", background: "#000", color: "#fff", padding: 20 }}>
       <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
         <h1>REO STUDIO</h1>
 
@@ -80,19 +67,13 @@ export default function ReoStudio() {
           {loading ? "جاري التوليد..." : "ولّد الصورة"}
         </button>
 
-        {error && (
-          <p style={{ color: "#ff6b6b", marginTop: 16 }}>{error}</p>
-        )}
+        {error && <p style={{ color: "#ff6b6b", marginTop: 16 }}>{error}</p>}
 
         {result && (
           <img
             src={result}
             alt="Generated"
-            style={{
-              width: "100%",
-              marginTop: 20,
-              borderRadius: 12,
-            }}
+            style={{ width: "100%", marginTop: 20, borderRadius: 12 }}
           />
         )}
       </div>
