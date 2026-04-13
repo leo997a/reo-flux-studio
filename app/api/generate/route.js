@@ -1,57 +1,48 @@
+// app/api/generate/route.js
 import { NextResponse } from "next/server";
-import { OpenRouter } from "@openrouter/sdk";
+import { GoogleGenAI } from "@google/genai";
 
 export const runtime = "nodejs";
 
-const openrouter = new OpenRouter({
-  apiKey: process.env.OPENROUTER_API_KEY,
+const ai = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 export async function POST(req) {
   try {
-    if (!process.env.OPENROUTER_API_KEY) {
-      return NextResponse.json(
-        { error: "Missing OPENROUTER_API_KEY" },
-        { status: 500 }
-      );
+    if (!process.env.GEMINI_API_KEY) {
+      return NextResponse.json({ error: "Missing GEMINI_API_KEY" }, { status: 500 });
     }
 
     const { prompt } = await req.json();
-
-    if (!prompt) {
-      return NextResponse.json(
-        { error: "Prompt is required" },
-        { status: 400 }
-      );
+    if (!prompt?.trim()) {
+      return NextResponse.json({ error: "Prompt is required" }, { status: 400 });
     }
 
-    const result = await openrouter.chat.send({
-      model: "google/gemini-3.1-flash-image-preview",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      modalities: ["image", "text"],
+    const response = await ai.models.generateContent({
+      model: "gemini-3.1-flash-image-preview",
+      contents: prompt,
     });
 
-    const message = result?.choices?.[0]?.message;
-    const imageUrl = message?.images?.[0]?.image_url?.url;
+    const parts = response?.candidates?.[0]?.content?.parts || [];
+    const imagePart = parts.find((p) => p.inlineData);
+    const textPart = parts.find((p) => p.text);
 
-    if (!imageUrl) {
+    if (!imagePart?.inlineData?.data) {
       return NextResponse.json(
-        { error: "No image returned from model" },
+        { error: textPart?.text || "No image returned from Gemini" },
         { status: 500 }
       );
     }
 
+    const mime = imagePart.inlineData.mimeType || "image/png";
+    const output = `data:${mime};base64,${imagePart.inlineData.data}`;
+
     return NextResponse.json({
-      output: imageUrl,
-      text: message?.content || "",
+      output,
+      text: textPart?.text || "",
     });
   } catch (error) {
-    console.error("OPENROUTER ERROR:", error);
     return NextResponse.json(
       { error: error?.message || "Generation failed" },
       { status: 500 }
