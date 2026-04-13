@@ -2,40 +2,31 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const FIXED_PROMPT = `Use exactly 1 uploaded image: IDENTITY.
+const FIXED_PROMPT = `Create a realistic professional studio photograph of the same man from the uploaded image.
 
-IDENTITY is the only person reference.
+Keep the same person generally consistent with the input photo.
+Preserve the main facial identity, age, skin tone, hairline, hair texture, beard style, jawline, nose, lips, and eye spacing as much as possible.
 
-Create one final ultra-realistic studio sports portrait of the exact same man from IDENTITY. Preserve his exact identity with no deviation. Keep the exact face shape, skin tone, age cues, forehead, hairline, hairstyle, hair texture, hair color, eyebrows, eye spacing, nose, lips, cheek structure, jawline, chin, beard/stubble or clean-shaven status, and overall male proportions.
-
-Apply this fixed studio setup:
+Use:
 - neutral grey studio background
 - black crew-neck shirt
-- dark wayfarer-style sunglasses
+- natural dark sunglasses
 - white wired earbuds
-- tight centered crop
-- centered symmetrical composition
-- studio sports-broadcast lighting
-- ultra-realistic skin texture
+- centered tight portrait crop
+- realistic studio lighting
+- natural skin texture
+- photorealistic DSLR look
 - neutral expression
-- photorealistic detail
 
-Critical rules:
-- No face blend.
-- No identity drift.
-- Do not beautify.
-- Do not make him younger or older.
-- Do not change ethnicity.
-- Do not change facial structure.
-- Do not alter beard/stubble status.
-- Keep realistic skin texture.
-- Keep the sunglasses and wired earbuds natural and cleanly integrated.
+Do not stylize.
+Do not paint.
+Do not illustrate.
+Do not beautify.
+Do not change ethnicity.
+Do not make the face younger.
+Do not add extra text or banners inside the image.
 
-Add a sports lower-third graphic at the bottom with this exact text and line breaks:
-Top line: "UCL QUARTERFINALS"
-Bottom line: "FC Barcelona has never beaten Atletico Madrid in UCL over 2 legs"
-
-Return one final image only.`;
+Return one realistic image only.`;
 
 export async function POST(req) {
   try {
@@ -56,46 +47,44 @@ export async function POST(req) {
       );
     }
 
-    const cfForm = new FormData();
-    cfForm.append("prompt", FIXED_PROMPT);
-    cfForm.append("width", "1024");
-    cfForm.append("height", "1024");
-
-    cfForm.append(
-      "input_image_0",
-      new Blob([await identity.arrayBuffer()], {
-        type: identity.type || "image/jpeg",
-      }),
-      identity.name || "identity.jpg"
-    );
+    const buffer = Buffer.from(await identity.arrayBuffer());
+    const image_b64 = buffer.toString("base64");
 
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-2-klein-4b`,
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/runwayml/stable-diffusion-v1-5-img2img`,
       {
         method: "POST",
         headers: {
           Authorization: `Bearer ${process.env.CF_API_TOKEN}`,
+          "Content-Type": "application/json",
         },
-        body: cfForm,
+        body: JSON.stringify({
+          prompt: FIXED_PROMPT,
+          negative_prompt:
+            "painting, illustration, cartoon, cgi, 3d render, fake skin, plastic skin, oversharpen, overprocessed, deformed face, distorted eyes, bad ears, blurry, low quality, text, logo, watermark, fantasy background, colorful smoke",
+          image_b64,
+          width: 768,
+          height: 768,
+          num_steps: 20,
+          strength: 0.22,
+          guidance: 7,
+          seed: 334455,
+        }),
       }
     );
 
-    const data = await res.json();
-
-    if (!res.ok || !data?.result?.image) {
+    if (!res.ok) {
+      const text = await res.text();
       return NextResponse.json(
-        {
-          error:
-            data?.errors?.[0]?.message ||
-            data?.result?.description ||
-            "Cloudflare generation failed",
-        },
+        { error: text || "Cloudflare generation failed" },
         { status: 500 }
       );
     }
 
+    const bytes = Buffer.from(await res.arrayBuffer());
+
     return NextResponse.json({
-      output: `data:image/jpeg;base64,${data.result.image}`,
+      output: `data:image/png;base64,${bytes.toString("base64")}`,
     });
   } catch (error) {
     return NextResponse.json(
