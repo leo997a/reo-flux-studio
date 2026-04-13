@@ -31,9 +31,7 @@ Critical rules:
 - Keep realistic skin texture.
 - Keep the sunglasses and wired earbuds natural and cleanly integrated.
 
-Add a sports lower-third graphic at the bottom with this exact text and line breaks:
-Top line: "UCL QUARTERFINALS"
-Bottom line: "FC Barcelona has never beaten Atletico Madrid in UCL over 2 legs"
+Do not add captions, banners, lower-thirds, logos, or any text in the generated image.
 
 Return one final image only.`;
 
@@ -58,6 +56,9 @@ export async function POST(req) {
 
     const cfForm = new FormData();
     cfForm.append("prompt", FIXED_PROMPT);
+    cfForm.append("steps", "24");
+    cfForm.append("guidance", "4.5");
+    cfForm.append("seed", "334455");
     cfForm.append("width", "1024");
     cfForm.append("height", "1024");
 
@@ -70,7 +71,7 @@ export async function POST(req) {
     );
 
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-2-klein-4b`,
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-2-dev`,
       {
         method: "POST",
         headers: {
