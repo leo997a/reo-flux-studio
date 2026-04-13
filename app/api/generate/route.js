@@ -1,54 +1,57 @@
 import { NextResponse } from "next/server";
-import Replicate from "replicate";
+import { OpenRouter } from "@openrouter/sdk";
 
 export const runtime = "nodejs";
 
-const replicate = new Replicate({
-  auth: process.env.REPLICATE_API_TOKEN,
+const openrouter = new OpenRouter({
+  apiKey: process.env.OPENROUTER_API_KEY,
 });
 
 export async function POST(req) {
   try {
-    if (!process.env.REPLICATE_API_TOKEN) {
+    if (!process.env.OPENROUTER_API_KEY) {
       return NextResponse.json(
-        { error: "Missing REPLICATE_API_TOKEN in Vercel environment variables" },
+        { error: "Missing OPENROUTER_API_KEY" },
         { status: 500 }
       );
     }
 
-    const { image } = await req.json();
+    const { prompt } = await req.json();
 
-    if (!image) {
+    if (!prompt) {
       return NextResponse.json(
-        { error: "No image provided" },
+        { error: "Prompt is required" },
         { status: 400 }
       );
     }
 
-    const output = await replicate.run("black-forest-labs/flux-2-pro", {
-      input: {
-        prompt: "Professional cinematic portrait, high detail, 8k",
-        input_images: [image],
-        aspect_ratio: "match_input_image",
-      },
+    const result = await openrouter.chat.send({
+      model: "google/gemini-3.1-flash-image-preview",
+      messages: [
+        {
+          role: "user",
+          content: prompt,
+        },
+      ],
+      modalities: ["image", "text"],
     });
 
-    const first = Array.isArray(output) ? output[0] : output;
-    const outputUrl =
-      typeof first === "string"
-        ? first
-        : first?.url || (typeof first?.url === "function" ? first.url() : null);
+    const message = result?.choices?.[0]?.message;
+    const imageUrl = message?.images?.[0]?.image_url?.url;
 
-    if (!outputUrl) {
+    if (!imageUrl) {
       return NextResponse.json(
-        { error: "Model returned no usable output URL" },
+        { error: "No image returned from model" },
         { status: 500 }
       );
     }
 
-    return NextResponse.json({ output: outputUrl });
+    return NextResponse.json({
+      output: imageUrl,
+      text: message?.content || "",
+    });
   } catch (error) {
-    console.error("REPLICATE ERROR:", error);
+    console.error("OPENROUTER ERROR:", error);
     return NextResponse.json(
       { error: error?.message || "Generation failed" },
       { status: 500 }
