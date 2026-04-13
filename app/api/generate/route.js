@@ -1,3 +1,7 @@
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+
 const FIXED_PROMPT = `Create a realistic professional studio photograph of the same man from the uploaded image.
 
 Keep the same person generally consistent with the input photo.
@@ -57,13 +61,13 @@ export async function POST(req) {
         body: JSON.stringify({
           prompt: FIXED_PROMPT,
           negative_prompt:
-            "text, captions, banner, logo, watermark, extra person, deformed face, distorted eyes, blurry, low quality, cartoon, illustration",
+            "painting, illustration, cartoon, cgi, 3d render, fake skin, plastic skin, oversharpen, overprocessed, deformed face, distorted eyes, bad ears, blurry, low quality, text, logo, watermark, fantasy background, colorful smoke",
           image_b64,
           width: 768,
           height: 768,
-          num_steps: 20,
-          strength: 0.35,
-          guidance: 6.5,
+          num_steps: 24,
+          strength: 0.22,
+          guidance: 7,
           seed: 334455,
         }),
       }
@@ -78,6 +82,7 @@ export async function POST(req) {
     }
 
     const bytes = Buffer.from(await res.arrayBuffer());
+
     return NextResponse.json({
       output: `data:image/png;base64,${bytes.toString("base64")}`,
     });
