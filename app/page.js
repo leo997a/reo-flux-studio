@@ -1,61 +1,143 @@
 "use client";
+
 import { useState } from "react";
 
-const T1="UCL QUARTERFINALS";
-const T2="FC Barcelona has never beaten Atletico Madrid in UCL over 2 legs";
+async function resizeImage(file, maxSide = 900) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 
-async function prep(file,s=480){
-  const u=await new Promise((r,j)=>{const f=new FileReader();f.onload=()=>r(f.result);f.onerror=j;f.readAsDataURL(file);});
-  const img=await new Promise((r,j)=>{const i=new Image();i.onload=()=>r(i);i.onerror=j;i.src=u;});
-  const w=img.width,h=img.height;
-  const c=Math.round(Math.min(w*.74,h*.52,Math.min(w,h)*.78));
-  const x=Math.max(0,Math.min(w-c,Math.round((w-c)/2)));
-  const y=Math.max(0,Math.min(h-c,Math.round(h*.14)));
-  const cv=document.createElement("canvas"); cv.width=s; cv.height=s;
-  const ctx=cv.getContext("2d"); ctx.drawImage(img,x,y,c,c,0,0,s,s);
-  const blob=await new Promise(r=>cv.toBlob(r,"image/jpeg",.96));
-  return {blob,preview:URL.createObjectURL(blob)};
+  const img = await new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = dataUrl;
+  });
+
+  const scale = Math.min(maxSide / img.width, maxSide / img.height, 1);
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, width, height);
+
+  const blob = await new Promise((resolve) =>
+    canvas.toBlob(resolve, "image/jpeg", 0.92)
+  );
+
+  return blob;
 }
 
-export default function ReoStudio(){
-  const [img,setImg]=useState(null),[preview,setPreview]=useState(""),[out,setOut]=useState(""),[err,setErr]=useState(""),[load,setLoad]=useState(false);
+export default function ReoStudio() {
+  const [identityBlob, setIdentityBlob] = useState(null);
+  const [identityPreview, setIdentityPreview] = useState("");
+  const [result, setResult] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const pick=async e=>{
-    const f=e.target.files?.[0]; if(!f) return;
-    try{ setErr(""); setOut(""); const p=await prep(f,480); setImg(p.blob); setPreview(p.preview); }
-    catch{ setErr("فشل في تجهيز الصورة."); }
+  const handlePick = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      setError("");
+      setResult("");
+
+      const resized = await resizeImage(file, 900);
+      const preview = URL.createObjectURL(resized);
+
+      setIdentityBlob(resized);
+      setIdentityPreview(preview);
+    } catch {
+      setError("فشل في تجهيز الصورة.");
+    }
   };
 
-  const gen=async ()=>{
-    if(!img||load) return;
-    setLoad(true); setErr(""); setOut("");
-    try{
-      const fd=new FormData(); fd.append("identity",img,"identity.jpg");
-      const r=await fetch("/api/generate",{method:"POST",body:fd});
-      const d=await r.json(); if(!r.ok) throw new Error(d.error||"Server Error");
-      setOut(d.output);
-    }catch(e){ setErr(e.message||"حدث خطأ"); } finally{ setLoad(false); }
+  const handleGenerate = async () => {
+    if (!identityBlob || loading) return;
+
+    setLoading(true);
+    setError("");
+    setResult("");
+
+    try {
+      const form = new FormData();
+      form.append("identity", identityBlob, "identity.jpg");
+
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        body: form,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Server Error");
+
+      setResult(data.output);
+    } catch (err) {
+      setError(err.message || "حدث خطأ");
+    } finally {
+      setLoading(false);
+    }
   };
 
-  return <div dir="rtl" style={{minHeight:"100vh",background:"#000",color:"#fff",padding:20}}>
-    <div style={{maxWidth:860,margin:"0 auto",textAlign:"center"}}>
-      <h1>REO STUDIO</h1>
-      <div style={{border:"1px solid #333",padding:16,borderRadius:14}}>
-        <h3>ارفع صورة الشخص فقط</h3>
-        {preview&&<img src={preview} alt="" style={{width:"100%",maxWidth:320,borderRadius:12,margin:"0 auto 12px",display:"block"}}/>}
-        <input type="file" accept="image/*" onChange={pick}/>
-      </div>
-      <button onClick={gen} disabled={load||!img} style={{marginTop:20,padding:"14px 28px",border:0,borderRadius:10,background:load||!img?"#444":"#0070f3",color:"#fff"}}>
-        {load?"جاري التوليد...":"ولّد الصورة"}
-      </button>
-      {err&&<p style={{color:"#ff6b6b",marginTop:16,whiteSpace:"pre-wrap"}}>{err}</p>}
-      {out&&<div style={{position:"relative",marginTop:24,borderRadius:16,overflow:"hidden",border:"1px solid #333"}}>
-        <img src={out} alt="" style={{width:"100%",display:"block"}}/>
-        <div style={{position:"absolute",left:"50%",bottom:"8%",transform:"translateX(-50%)",width:"82%"}}>
-          <div style={{background:"#b9def7",color:"#000",fontWeight:900,fontSize:"clamp(20px,4vw,34px)",padding:"12px 16px",width:"78%",margin:"0 auto"}}>{T1}</div>
-          <div style={{background:"#f2f2f2",color:"#000",fontWeight:700,fontSize:"clamp(11px,2vw,18px)",padding:"10px 14px"}}>{T2}</div>
+  return (
+    <div
+      dir="rtl"
+      style={{ minHeight: "100vh", background: "#000", color: "#fff", padding: 20 }}
+    >
+      <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
+        <h1 style={{ marginBottom: 20 }}>REO STUDIO</h1>
+
+        <div style={{ border: "1px solid #333", padding: 16, borderRadius: 14 }}>
+          <h3>ارفع صورة الشخص فقط</h3>
+          {identityPreview && (
+            <img
+              src={identityPreview}
+              alt="identity"
+              style={{ width: "100%", borderRadius: 12, marginBottom: 12 }}
+            />
+          )}
+          <input type="file" accept="image/*" onChange={handlePick} />
         </div>
-      </div>}
+
+        <button
+          onClick={handleGenerate}
+          disabled={loading || !identityBlob}
+          style={{
+            marginTop: 20,
+            padding: "14px 28px",
+            border: "none",
+            borderRadius: 10,
+            background: loading || !identityBlob ? "#444" : "#0070f3",
+            color: "#fff",
+            cursor: loading || !identityBlob ? "not-allowed" : "pointer",
+          }}
+        >
+          {loading ? "جاري التوليد..." : "ولّد الصورة"}
+        </button>
+
+        {error && <p style={{ color: "#ff6b6b", marginTop: 16 }}>{error}</p>}
+
+        {result && (
+          <img
+            src={result}
+            alt="Generated"
+            style={{
+              width: "100%",
+              marginTop: 20,
+              borderRadius: 12,
+              border: "1px solid #333",
+            }}
+          />
+        )}
+      </div>
     </div>
-  </div>;
+  );
 }
