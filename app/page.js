@@ -3,48 +3,13 @@
 import { useState } from "react";
 
 export default function ReoStudio() {
-  const [preview, setPreview] = useState(null);
+  const [prompt, setPrompt] = useState("");
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleFileChange = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setError("");
-    setResult(null);
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target.result;
-
-      img.onload = () => {
-        const canvas = document.createElement("canvas");
-        const MAX_WIDTH = 1024;
-        const targetWidth = Math.min(img.width, MAX_WIDTH);
-        const scale = targetWidth / img.width;
-
-        canvas.width = targetWidth;
-        canvas.height = Math.round(img.height * scale);
-
-        const ctx = canvas.getContext("2d");
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-        setPreview(dataUrl);
-      };
-
-      img.onerror = () => setError("فشل في قراءة الصورة.");
-    };
-
-    reader.onerror = () => setError("حدث خطأ أثناء رفع الصورة.");
-    reader.readAsDataURL(file);
-  };
-
   const handleGenerate = async () => {
-    if (!preview || loading) return;
+    if (!prompt.trim() || loading) return;
 
     setLoading(true);
     setError("");
@@ -54,7 +19,7 @@ export default function ReoStudio() {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image: preview }),
+        body: JSON.stringify({ prompt }),
       });
 
       const data = await res.json();
@@ -62,7 +27,7 @@ export default function ReoStudio() {
 
       setResult(data.output);
     } catch (err) {
-      setError(err.message || "حدث خطأ غير متوقع.");
+      setError(err.message || "حدث خطأ");
     } finally {
       setLoading(false);
     }
@@ -71,35 +36,35 @@ export default function ReoStudio() {
   return (
     <div dir="rtl" style={{ minHeight: "100vh", background: "#000", color: "#fff", padding: 20 }}>
       <div style={{ maxWidth: 700, margin: "0 auto", textAlign: "center" }}>
-        <h1 style={{ marginBottom: 20 }}>REO STUDIO</h1>
+        <h1>REO STUDIO</h1>
 
-        <div style={{ border: "2px dashed #333", borderRadius: 16, padding: 20, marginBottom: 20 }}>
-          {preview ? (
-            <img
-              src={preview}
-              alt="Preview"
-              style={{ width: "100%", borderRadius: 12, marginBottom: 15 }}
-            />
-          ) : (
-            <p style={{ color: "#aaa", marginBottom: 15 }}>اختر صورة للبدء</p>
-          )}
-
-          <input type="file" accept="image/*" onChange={handleFileChange} />
-        </div>
+        <textarea
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="اكتب وصف الصورة..."
+          style={{
+            width: "100%",
+            minHeight: 120,
+            padding: 12,
+            borderRadius: 12,
+            marginTop: 20,
+            marginBottom: 20,
+          }}
+        />
 
         <button
           onClick={handleGenerate}
-          disabled={loading || !preview}
+          disabled={loading || !prompt.trim()}
           style={{
             padding: "14px 28px",
-            background: loading || !preview ? "#444" : "#0070f3",
-            color: "#fff",
             border: "none",
             borderRadius: 10,
-            cursor: loading || !preview ? "not-allowed" : "pointer",
+            background: loading ? "#444" : "#0070f3",
+            color: "#fff",
+            cursor: loading ? "not-allowed" : "pointer",
           }}
         >
-          {loading ? "جاري التوليد..." : "ابدأ الآن"}
+          {loading ? "جاري التوليد..." : "ولّد الصورة"}
         </button>
 
         {error && <p style={{ color: "#ff6b6b", marginTop: 16 }}>{error}</p>}
@@ -107,8 +72,8 @@ export default function ReoStudio() {
         {result && (
           <img
             src={result}
-            alt="Result"
-            style={{ width: "100%", marginTop: 20, borderRadius: 12, border: "2px solid #0070f3" }}
+            alt="Generated"
+            style={{ width: "100%", marginTop: 20, borderRadius: 12 }}
           />
         )}
       </div>
