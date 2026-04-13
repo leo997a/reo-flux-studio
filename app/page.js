@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 
-async function resizeImage(file, maxSide = 500) {
+async function resizeImage(file, maxSide = 900) {
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -36,15 +36,13 @@ async function resizeImage(file, maxSide = 500) {
 }
 
 export default function ReoStudio() {
-  const [templatePreview, setTemplatePreview] = useState("");
-  const [identityPreview, setIdentityPreview] = useState("");
-  const [templateBlob, setTemplateBlob] = useState(null);
   const [identityBlob, setIdentityBlob] = useState(null);
+  const [identityPreview, setIdentityPreview] = useState("");
   const [result, setResult] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handlePick = async (e, type) => {
+  const handlePick = async (e) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -52,23 +50,18 @@ export default function ReoStudio() {
       setError("");
       setResult("");
 
-      const resized = await resizeImage(file, 500);
+      const resized = await resizeImage(file, 900);
       const preview = URL.createObjectURL(resized);
 
-      if (type === "template") {
-        setTemplateBlob(resized);
-        setTemplatePreview(preview);
-      } else {
-        setIdentityBlob(resized);
-        setIdentityPreview(preview);
-      }
+      setIdentityBlob(resized);
+      setIdentityPreview(preview);
     } catch {
       setError("فشل في تجهيز الصورة.");
     }
   };
 
   const handleGenerate = async () => {
-    if (!templateBlob || !identityBlob || loading) return;
+    if (!identityBlob || loading) return;
 
     setLoading(true);
     setError("");
@@ -76,7 +69,6 @@ export default function ReoStudio() {
 
     try {
       const form = new FormData();
-      form.append("template", templateBlob, "template.jpg");
       form.append("identity", identityBlob, "identity.jpg");
 
       const res = await fetch("/api/generate", {
@@ -96,39 +88,36 @@ export default function ReoStudio() {
   };
 
   return (
-    <div dir="rtl" style={{ minHeight: "100vh", background: "#000", color: "#fff", padding: 20 }}>
-      <div style={{ maxWidth: 820, margin: "0 auto", textAlign: "center" }}>
+    <div
+      dir="rtl"
+      style={{ minHeight: "100vh", background: "#000", color: "#fff", padding: 20 }}
+    >
+      <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
         <h1 style={{ marginBottom: 20 }}>REO STUDIO</h1>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          <div style={{ border: "1px solid #333", padding: 16, borderRadius: 14 }}>
-            <h3>TEMPLATE</h3>
-            {templatePreview && (
-              <img src={templatePreview} alt="template" style={{ width: "100%", borderRadius: 12, marginBottom: 12 }} />
-            )}
-            <input type="file" accept="image/*" onChange={(e) => handlePick(e, "template")} />
-          </div>
-
-          <div style={{ border: "1px solid #333", padding: 16, borderRadius: 14 }}>
-            <h3>IDENTITY</h3>
-            {identityPreview && (
-              <img src={identityPreview} alt="identity" style={{ width: "100%", borderRadius: 12, marginBottom: 12 }} />
-            )}
-            <input type="file" accept="image/*" onChange={(e) => handlePick(e, "identity")} />
-          </div>
+        <div style={{ border: "1px solid #333", padding: 16, borderRadius: 14 }}>
+          <h3>ارفع صورة الشخص فقط</h3>
+          {identityPreview && (
+            <img
+              src={identityPreview}
+              alt="identity"
+              style={{ width: "100%", borderRadius: 12, marginBottom: 12 }}
+            />
+          )}
+          <input type="file" accept="image/*" onChange={handlePick} />
         </div>
 
         <button
           onClick={handleGenerate}
-          disabled={loading || !templateBlob || !identityBlob}
+          disabled={loading || !identityBlob}
           style={{
             marginTop: 20,
             padding: "14px 28px",
             border: "none",
             borderRadius: 10,
-            background: loading || !templateBlob || !identityBlob ? "#444" : "#0070f3",
+            background: loading || !identityBlob ? "#444" : "#0070f3",
             color: "#fff",
-            cursor: loading || !templateBlob || !identityBlob ? "not-allowed" : "pointer",
+            cursor: loading || !identityBlob ? "not-allowed" : "pointer",
           }}
         >
           {loading ? "جاري التوليد..." : "ولّد الصورة"}
@@ -140,7 +129,12 @@ export default function ReoStudio() {
           <img
             src={result}
             alt="Generated"
-            style={{ width: "100%", marginTop: 20, borderRadius: 12, border: "1px solid #333" }}
+            style={{
+              width: "100%",
+              marginTop: 20,
+              borderRadius: 12,
+              border: "1px solid #333",
+            }}
           />
         )}
       </div>
