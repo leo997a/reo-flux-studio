@@ -2,31 +2,36 @@ import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-const FIXED_PROMPT = `Use exactly 2 uploaded images: TEMPLATE and IDENTITY.
+const FIXED_PROMPT = `Use exactly 1 uploaded image: IDENTITY.
 
-TEMPLATE is for setup only. IDENTITY is for the person only.
+IDENTITY is the only person reference.
 
-Create one final ultra-realistic studio sports portrait. Copy from TEMPLATE only the non-identity setup: neutral grey studio background, black crew-neck shirt, dark wayfarer-style sunglasses, white wired earbuds, tight centered crop, camera distance, head placement, studio lighting style, and the lower-third TV graphic design and placement.
+Create one final ultra-realistic studio sports portrait of the exact same man from IDENTITY. Preserve his exact identity with no deviation. Keep the exact face shape, skin tone, age cues, forehead, hairline, hairstyle, hair texture, hair color, eyebrows, eye spacing, nose, lips, cheek structure, jawline, chin, beard/stubble or clean-shaven status, and overall male proportions.
 
-Copy from IDENTITY only the exact man: preserve his exact identity with no deviation. Keep the exact face shape, skin tone, age cues, forehead, hairline, hairstyle, hair texture, hair color, eyebrows, eye spacing, nose, lips, cheek structure, jawline, chin, beard/stubble or clean-shaven status, and overall male proportions. The final person must clearly be the man from IDENTITY, not the man from TEMPLATE.
+Apply this fixed studio setup:
+- neutral grey studio background
+- black crew-neck shirt
+- dark wayfarer-style sunglasses
+- white wired earbuds
+- tight centered crop
+- centered symmetrical composition
+- studio sports-broadcast lighting
+- ultra-realistic skin texture
+- neutral expression
+- photorealistic detail
 
 Critical rules:
 - No face blend.
-- No template identity leakage.
-- No Messi-like or template-like resemblance.
+- No identity drift.
 - Do not beautify.
 - Do not make him younger or older.
 - Do not change ethnicity.
 - Do not change facial structure.
 - Do not alter beard/stubble status.
-- Keep a neutral expression.
-- Keep realistic skin texture and photorealistic detail.
+- Keep realistic skin texture.
 - Keep the sunglasses and wired earbuds natural and cleanly integrated.
-- Keep the portrait symmetrical, centered, and tightly cropped.
 
-The lower-third graphic must remain exactly as in TEMPLATE, with the exact same wording, capitalization, layout, and line breaks. Do not rewrite, paraphrase, shorten, translate, restyle, or censor any text.
-
-Required lower-third text:
+Add a sports lower-third graphic at the bottom with this exact text and line breaks:
 Top line: "UCL QUARTERFINALS"
 Bottom line: "FC Barcelona has never beaten Atletico Madrid in UCL over 2 legs"
 
@@ -42,37 +47,30 @@ export async function POST(req) {
     }
 
     const form = await req.formData();
-    const template = form.get("template");
     const identity = form.get("identity");
 
-    if (!(template instanceof File) || !(identity instanceof File)) {
+    if (!(identity instanceof File)) {
       return NextResponse.json(
-        { error: "Both TEMPLATE and IDENTITY images are required" },
+        { error: "Identity image is required" },
         { status: 400 }
       );
     }
 
     const cfForm = new FormData();
     cfForm.append("prompt", FIXED_PROMPT);
-    cfForm.append("steps", "20");
-    cfForm.append("guidance", "4");
     cfForm.append("width", "1024");
     cfForm.append("height", "1024");
 
     cfForm.append(
       "input_image_0",
-      new Blob([await template.arrayBuffer()], { type: template.type || "image/jpeg" }),
-      template.name || "template.jpg"
-    );
-
-    cfForm.append(
-      "input_image_1",
-      new Blob([await identity.arrayBuffer()], { type: identity.type || "image/jpeg" }),
+      new Blob([await identity.arrayBuffer()], {
+        type: identity.type || "image/jpeg",
+      }),
       identity.name || "identity.jpg"
     );
 
     const res = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-2-dev`,
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-2-klein-4b`,
       {
         method: "POST",
         headers: {
