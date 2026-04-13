@@ -1,6 +1,5 @@
 "use client";
-export const dynamic = 'force-dynamic'; // حل مشكلة Prerendering
-
+export const dynamic = 'force-dynamic';
 import { useState } from 'react';
 
 export default function ReoStudio() {
@@ -8,128 +7,63 @@ export default function ReoStudio() {
   const [result, setResult] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // دالة اختيار الصورة وضغطها مبدئياً
+  // دالة ذكية لضغط الصورة قبل رفعها
   const handleFileChange = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      if (file.size > 4 * 1024 * 1024) {
-        alert("الصورة كبيرة جداً، يرجى اختيار صورة أقل من 4 ميجابايت");
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => setPreview(reader.result);
-      reader.readAsDataURL(file);
-    }
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target.result;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1024; // تصغير العرض لضمان خفة الوزن
+        const scaleSize = MAX_WIDTH / img.width;
+        canvas.width = MAX_WIDTH;
+        canvas.height = img.height * scaleSize;
+
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        
+        // تحويل الصورة لـ JPEG بضغط 70%
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.7);
+        setPreview(dataUrl);
+      };
+    };
   };
 
   const handleGenerate = async () => {
-    if (!preview) return alert("الرجاء اختيار صورة أولاً");
     setLoading(true);
     setResult(null);
-
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ image: preview }),
       });
-
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "فشل السيرفر في المعالجة");
-      
+      if (!res.ok) throw new Error(data.error || "Server Error");
       setResult(data.output);
-    } catch (error) {
-      alert("حدث خطأ: " + error.message);
+    } catch (err) {
+      alert("خطأ: " + err.message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div dir="rtl" style={{
-      backgroundColor: '#09090b',
-      color: 'white',
-      minHeight: '100vh',
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      padding: '20px',
-      fontFamily: 'sans-serif'
-    }}>
-      <div style={{ width: '100%', maxWidth: '400px', textAlign: 'center' }}>
-        <h1 style={{ color: '#3b82f6', fontSize: '2.5rem', marginBottom: '10px' }}>REO STUDIO</h1>
-        <p style={{ color: '#a1a1aa', marginBottom: '30px' }}>ارفع صورتك واحصل على تصميم ذكاء اصطناعي</p>
-
-        <div style={{
-          border: '2px dashed #27272a',
-          borderRadius: '20px',
-          padding: '20px',
-          backgroundColor: '#18181b',
-          marginBottom: '20px',
-          position: 'relative'
-        }}>
-          {preview ? (
-            <img src={preview} style={{ width: '100%', borderRadius: '15px' }} alt="Preview" />
-          ) : (
-            <div style={{ padding: '40px 0' }}>
-              <span style={{ fontSize: '3rem' }}>📸</span>
-              <p>اضغط هنا لرفع صورة</p>
-            </div>
-          )}
-          <input 
-            type="file" 
-            accept="image/*" 
-            onChange={handleFileChange}
-            style={{
-              position: 'absolute',
-              top: 0, left: 0, width: '100%', height: '100%',
-              opacity: 0, cursor: 'pointer'
-            }}
-          />
-        </div>
-
-        <button 
-          onClick={handleGenerate} 
-          disabled={loading || !preview}
-          style={{
-            width: '100%',
-            padding: '15px',
-            borderRadius: '15px',
-            backgroundColor: loading ? '#27272a' : '#2563eb',
-            color: 'white',
-            border: 'none',
-            fontWeight: 'bold',
-            fontSize: '1.1rem',
-            cursor: 'pointer'
-          }}
-        >
-          {loading ? "جاري التوليد... انتظر ثواني" : "ابدأ السحر"}
-        </button>
-
-        {result && (
-          <div style={{ marginTop: '30px', animation: 'fadeIn 0.5s' }}>
-            <h2 style={{ color: '#4ade80', marginBottom: '15px' }}>النتيجة مذهلة!</h2>
-            <img src={result} style={{ width: '100%', borderRadius: '20px', border: '3px solid #3b82f6' }} alt="Result" />
-            <a 
-              href={result} 
-              target="_blank"
-              download="reo-ai.png"
-              style={{
-                display: 'block',
-                marginTop: '15px',
-                padding: '12px',
-                backgroundColor: 'white',
-                color: 'black',
-                borderRadius: '10px',
-                textDecoration: 'none',
-                fontWeight: 'bold'
-              }}
-            >
-              حفظ في الموبايل
-            </a>
-          </div>
-        )}
+    <div dir="rtl" style={{ backgroundColor: '#000', color: '#fff', minHeight: '100vh', padding: '20px', textAlign: 'center' }}>
+      <h1>REO STUDIO</h1>
+      <div style={{ border: '2px dashed #333', padding: '20px', borderRadius: '15px', marginBottom: '20px' }}>
+        {preview && <img src={preview} style={{ width: '100%', borderRadius: '10px' }} />}
+        <input type="file" accept="image/*" onChange={handleFileChange} />
       </div>
+      <button onClick={handleGenerate} disabled={loading} style={{ padding: '15px 30px', backgroundColor: '#0070f3', color: '#fff', border: 'none', borderRadius: '10px' }}>
+        {loading ? "جاري التوليد..." : "ابدأ الآن"}
+      </button>
+      {result && <img src={result} style={{ width: '100%', marginTop: '20px', border: '2px solid #0070f3' }} />}
     </div>
   );
 }
