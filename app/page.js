@@ -2,11 +2,7 @@
 
 import { useState } from "react";
 
-const TOP_LINE = "UCL QUARTERFINALS";
-const BOTTOM_LINE =
-  "FC Barcelona has never beaten Atletico Madrid in UCL over 2 legs";
-
-async function prepareIdentityImage(file, outputSize = 480) {
+async function resizeImage(file, maxSide = 900) {
   const dataUrl = await new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
@@ -21,38 +17,22 @@ async function prepareIdentityImage(file, outputSize = 480) {
     image.src = dataUrl;
   });
 
-  const w = img.width;
-  const h = img.height;
-
-  const cropSize = Math.round(Math.min(w * 0.74, h * 0.52, Math.min(w, h) * 0.78));
-  const cropX = Math.max(0, Math.min(w - cropSize, Math.round((w - cropSize) / 2)));
-  const cropY = Math.max(0, Math.min(h - cropSize, Math.round(h * 0.14)));
+  const scale = Math.min(maxSide / img.width, maxSide / img.height, 1);
+  const width = Math.max(1, Math.round(img.width * scale));
+  const height = Math.max(1, Math.round(img.height * scale));
 
   const canvas = document.createElement("canvas");
-  canvas.width = outputSize;
-  canvas.height = outputSize;
+  canvas.width = width;
+  canvas.height = height;
 
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(
-    img,
-    cropX,
-    cropY,
-    cropSize,
-    cropSize,
-    0,
-    0,
-    outputSize,
-    outputSize
-  );
+  ctx.drawImage(img, 0, 0, width, height);
 
   const blob = await new Promise((resolve) =>
-    canvas.toBlob(resolve, "image/jpeg", 0.96)
+    canvas.toBlob(resolve, "image/jpeg", 0.92)
   );
 
-  return {
-    blob,
-    preview: URL.createObjectURL(blob),
-  };
+  return blob;
 }
 
 export default function ReoStudio() {
@@ -70,9 +50,11 @@ export default function ReoStudio() {
       setError("");
       setResult("");
 
-      const prepared = await prepareIdentityImage(file, 480);
-      setIdentityBlob(prepared.blob);
-      setIdentityPreview(prepared.preview);
+      const resized = await resizeImage(file, 900);
+      const preview = URL.createObjectURL(resized);
+
+      setIdentityBlob(resized);
+      setIdentityPreview(preview);
     } catch {
       setError("فشل في تجهيز الصورة.");
     }
@@ -95,10 +77,7 @@ export default function ReoStudio() {
       });
 
       const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || "Server Error");
-      }
+      if (!res.ok) throw new Error(data.error || "Server Error");
 
       setResult(data.output);
     } catch (err) {
@@ -111,41 +90,20 @@ export default function ReoStudio() {
   return (
     <div
       dir="rtl"
-      style={{
-        minHeight: "100vh",
-        background: "#000",
-        color: "#fff",
-        padding: 20,
-      }}
+      style={{ minHeight: "100vh", background: "#000", color: "#fff", padding: 20 }}
     >
-      <div style={{ maxWidth: 860, margin: "0 auto", textAlign: "center" }}>
+      <div style={{ maxWidth: 760, margin: "0 auto", textAlign: "center" }}>
         <h1 style={{ marginBottom: 20 }}>REO STUDIO</h1>
 
-        <div
-          style={{
-            border: "1px solid #333",
-            padding: 16,
-            borderRadius: 14,
-            marginBottom: 20,
-          }}
-        >
-          <h3 style={{ marginBottom: 12 }}>ارفع صورة الشخص فقط</h3>
-
+        <div style={{ border: "1px solid #333", padding: 16, borderRadius: 14 }}>
+          <h3>ارفع صورة الشخص فقط</h3>
           {identityPreview && (
             <img
               src={identityPreview}
-              alt="identity preview"
-              style={{
-                width: "100%",
-                maxWidth: 320,
-                borderRadius: 12,
-                margin: "0 auto 12px",
-                display: "block",
-                border: "1px solid #333",
-              }}
+              alt="identity"
+              style={{ width: "100%", borderRadius: 12, marginBottom: 12 }}
             />
           )}
-
           <input type="file" accept="image/*" onChange={handlePick} />
         </div>
 
@@ -153,6 +111,7 @@ export default function ReoStudio() {
           onClick={handleGenerate}
           disabled={loading || !identityBlob}
           style={{
+            marginTop: 20,
             padding: "14px 28px",
             border: "none",
             borderRadius: 10,
@@ -164,77 +123,19 @@ export default function ReoStudio() {
           {loading ? "جاري التوليد..." : "ولّد الصورة"}
         </button>
 
-        {error && (
-          <p style={{ color: "#ff6b6b", marginTop: 16, whiteSpace: "pre-wrap" }}>
-            {error}
-          </p>
-        )}
+        {error && <p style={{ color: "#ff6b6b", marginTop: 16 }}>{error}</p>}
 
         {result && (
-          <div
+          <img
+            src={result}
+            alt="Generated"
             style={{
-              position: "relative",
               width: "100%",
-              marginTop: 24,
-              borderRadius: 16,
-              overflow: "hidden",
+              marginTop: 20,
+              borderRadius: 12,
               border: "1px solid #333",
-              background: "#111",
             }}
-          >
-            <img
-              src={result}
-              alt="Generated"
-              style={{
-                display: "block",
-                width: "100%",
-              }}
-            />
-
-            <div
-              style={{
-                position: "absolute",
-                left: "50%",
-                bottom: "8%",
-                transform: "translateX(-50%)",
-                width: "82%",
-                pointerEvents: "none",
-              }}
-            >
-              <div
-                style={{
-                  background: "#b9def7",
-                  color: "#000",
-                  fontWeight: 900,
-                  fontSize: "clamp(20px, 4vw, 34px)",
-                  lineHeight: 1,
-                  padding: "12px 16px",
-                  textAlign: "center",
-                  width: "78%",
-                  margin: "0 auto 0 auto",
-                  boxShadow: "0 3px 0 rgba(0,0,0,0.25)",
-                }}
-              >
-                {TOP_LINE}
-              </div>
-
-              <div
-                style={{
-                  background: "#f2f2f2",
-                  color: "#000",
-                  fontWeight: 700,
-                  fontSize: "clamp(11px, 2vw, 18px)",
-                  lineHeight: 1.15,
-                  padding: "10px 14px",
-                  textAlign: "center",
-                  marginTop: 0,
-                  boxShadow: "0 3px 0 rgba(0,0,0,0.18)",
-                }}
-              >
-                {BOTTOM_LINE}
-              </div>
-            </div>
-          </div>
+          />
         )}
       </div>
     </div>
